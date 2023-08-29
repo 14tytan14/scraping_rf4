@@ -57,12 +57,21 @@ s = Service(r"/usr/bin/chromedriver")
 driver = webdriver.Chrome(service=s)
 
 strony = [
-          ['https://rf4.pl/records/region/GL/',             'total','absolut','global'               ],['https://rf4.pl/records/region/PL/','total','absolut','pl'],
-          ['https://rf4.pl/records/weekly/region/GL/',      'total','weekly','global'       ],['https://rf4.pl/records/weekly/region/PL/','total','weekly','pl'],
-          ['https://rf4.pl/ultralight/region/GL/',          'ultralight','absolut','global'            ],                          [ 'https://rf4.pl/ultralight/region/PL/','ultralight','absolut','pl'   ],
-          ['https://rf4.pl/ultralight/weekly/region/GL/',    'ultralight','weekly','global'     ],                          ['https://rf4.pl/ultralight/weekly/region/PL/','ultralight','weekly','pl' ],
-          ['https://rf4.pl/telestick/region/GL/',           'teleskop','absolut','global'     ],                          [ 'https://rf4.pl/telestick/region/PL/','teleskop','absolut','pl'   ],
-          ['https://rf4.pl/telestick/weekly/region/GL/',      'teleskop','weekly','global'     ],                          ['https://rf4.pl/telestick/weekly/region/PL/','teleskop','absolut','pl'   ]
+          ['https://rf4.pl/records/region/GL/',             'total','absolut','global'               ],
+          ['https://rf4.pl/records/region/PL/',             'total','absolut','pl'],
+          
+          ['https://rf4.pl/records/weekly/region/GL/',      'total','weekly','global'       ],
+          ['https://rf4.pl/records/weekly/region/PL/','total','weekly','pl'],
+          
+          ['https://rf4.pl/ultralight/region/GL/',          'ultralight','absolut','global'            ],
+          ['https://rf4.pl/ultralight/region/PL/','ultralight','absolut','pl'   ],
+          ['https://rf4.pl/ultralight/weekly/region/GL/',    'ultralight','weekly','global'     ],
+          ['https://rf4.pl/ultralight/weekly/region/PL/','ultralight','weekly','pl' ],
+          
+          ['https://rf4.pl/telestick/region/GL/',           'teleskop','absolut','global'     ],
+          ['https://rf4.pl/telestick/region/PL/','teleskop','absolut','pl'   ],
+          ['https://rf4.pl/telestick/weekly/region/GL/',      'teleskop','weekly','global'     ],
+          ['https://rf4.pl/telestick/weekly/region/PL/','teleskop','absolut','pl'   ]
 
 
           ]
@@ -73,7 +82,8 @@ baits = []
 data = []
 wpis_problem = ''
 for a in range (0,len(strony)):
-#for a in range(3,4):
+#for a in range(7,len(strony)):
+    print('   sprawdzam',strony[a][0])
     driver.get(strony[a][0])
     time.sleep(0.2)
     website = (strony[a][1])
@@ -89,7 +99,7 @@ for a in range (0,len(strony)):
     ilosc_wpisy = len(wpisy)-menu_boczne
 
     for b in range(6,ilosc_wpisy-1,6):
-    #for b in range(6,1800,6):
+    #for b in range(6,180,6):
         try:
             wpisy[b].click()
             time.sleep(0.10)
@@ -97,40 +107,45 @@ for a in range (0,len(strony)):
             data_small = []
             ab = re.findall('[0-9]+',wpisy[b].text)
             if ((wpisy[b+1].text).find(" kg") > 0 or (wpisy[b+1].text).find(" g") >0) and (len(ab)==0)  :
+                if re.match(r'^\d{2}.\d{2}.\d{2}$',wpisy[b+5].text): #walidacja daty
+                    if len(wpisy[b].text) == 0:
+                        data_small.append(ryba)
+                    else:
+                        data_small.append(wpisy[b].text)
+                        ryba = wpisy[b].text
 
-                if len(wpisy[b].text) == 0:
-                    data_small.append(ryba)
-                else:
-                    data_small.append(wpisy[b].text)
-                    ryba = wpisy[b].text
-
-                data_small.append(wpisy[b+1].text)
-                data_small.append(wpisy[b+2].text)
-                data_small.append(wpisy[b+4].text)
-                data_small.append(wpisy[b+5].text)
-            else:
-
-
+                    data_small.append(wpisy[b+1].text)
+                    data_small.append(wpisy[b+2].text)
+                    data_small.append(wpisy[b+4].text)
+                    #print(wpisy[b+5].text)              
+                        
+                    
+                    data_small.append(wpisy[b+5].text)
+                    #print('tak wyglada data small przed obsluga bledu',data_small)
+            else:                
                 data_small = []
                 for problem in range (b,b+6):
                     #print('problem data',problem,wpisy[problem].text,wpisy[problem-1].text,wpisy[problem+1].text,)
+                    oz_wagi = wpisy[problem].text[-2:]
+                    #print('oznaczenie wagi',oz_wagi)                                        
+                    if ((wpisy[problem].text).find(" kg") > 0 or  (wpisy[problem].text).find(" g")   > 0 ) and (oz_wagi == 'kg' or  oz_wagi == ' g') :
+                       #print('pracujemy nad ryba')
+                       if re.match(r'^\d{2}.\d{2}.\d{2}$',wpisy[problem+4].text): #walidacja daty 
+                        
+                           if len(wpisy[problem-1].text) == 0:
+                                data_small.append(ryba)
+                                #print('dodalem rybe z bledu',ryba)
+                           else:
+                               if len(re.findall('[0-9]+',wpisy[problem-1].text  ))==0:
+                                   data_small.append(wpisy[problem-1].text)
+                                   ryba = wpisy[problem-1].text
 
-                    if (wpisy[problem].text).find(" kg") > 0 or  (wpisy[problem].text).find(" g")   > 0  :
-
-                       if len(wpisy[problem-1].text) == 0:
-                            data_small.append(ryba)
-                       else:
-                           if len(re.findall('[0-9]+',wpisy[problem-1].text  ))==0:
-                               data_small.append(wpisy[problem-1].text)
-                               ryba = wpisy[problem-1].text
-
-
-                       data_small.append(wpisy[problem].text)
-                       data_small.append(wpisy[problem+1].text)
-                       data_small.append(wpisy[problem+3].text)
-                       data_small.append(wpisy[problem+4].text)
-                       #print('  dodalismy z bledu',data_small)
-                       break
+                           data_small.append(wpisy[problem].text)
+                           data_small.append(wpisy[problem+1].text)
+                           data_small.append(wpisy[problem+3].text)
+                           data_small.append(wpisy[problem+4].text)
+                           #print('  dodalismy z bledu',data_small)
+                           break
                     else:
                        #print('  dalej')
                        continue
@@ -138,18 +153,18 @@ for a in range (0,len(strony)):
 
 
 
-            #print(data_small) #dev
+            #print('    ',data_small) #dev
             #time.slepp(10) #devc
             #print(len(data_small))
             if len(data_small) ==5 and len(re.findall('[0-9]+',data_small[0])  )==0:
                 data.append(data_small)
         except Exception as e:
-            print (e)
+            #print (e)
             print('problem krytyczny z ', b, wpisy[b].text )
 
 
-    # for datas in data:
-    #     print (datas)
+    #for datas in data:
+    #    print (datas)
     #print(dupa)
     #print(data)
     complete_data = []
