@@ -22,20 +22,11 @@ stary rumszego:
 
 import sys
 import mysql.connector
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-
-
-#test crap for getting title
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-#end of test crap
-
+import requests
 import datetime
 import time
 import re
+import bs4
 
 mydb = mysql.connector.connect(
     host = "localhost",
@@ -52,26 +43,23 @@ print('/*********************Uruchomienie skryptu scraping_rf4.py')
 sprawiajace_problemy = []
 chory = 0
 
-#wczytanie drivera
-s = Service(r"/usr/bin/chromedriver")
-driver = webdriver.Chrome(service=s)
 
 strony = [
           ['https://rf4.pl/records/region/GL/',             'total','absolut','global'               ],
           ['https://rf4.pl/records/region/PL/',             'total','absolut','pl'],
-          
+
           ['https://rf4.pl/records/weekly/region/GL/',      'total','weekly','global'       ],
-          ['https://rf4.pl/records/weekly/region/PL/','total','weekly','pl'],
-          
+          ['https://rf4.pl/records/weekly/region/PL/',      'total','weekly','pl'],
+
           ['https://rf4.pl/ultralight/region/GL/',          'ultralight','absolut','global'            ],
-          ['https://rf4.pl/ultralight/region/PL/','ultralight','absolut','pl'   ],
-          ['https://rf4.pl/ultralight/weekly/region/GL/',    'ultralight','weekly','global'     ],
-          ['https://rf4.pl/ultralight/weekly/region/PL/','ultralight','weekly','pl' ],
-          
+          ['https://rf4.pl/ultralight/region/PL/',          'ultralight','absolut','pl'   ],
+          ['https://rf4.pl/ultralight/weekly/region/GL/',   'ultralight','weekly','global'     ],
+          ['https://rf4.pl/ultralight/weekly/region/PL/',   'ultralight','weekly','pl' ],
+
           ['https://rf4.pl/telestick/region/GL/',           'teleskop','absolut','global'     ],
-          ['https://rf4.pl/telestick/region/PL/','teleskop','absolut','pl'   ],
-          ['https://rf4.pl/telestick/weekly/region/GL/',      'teleskop','weekly','global'     ],
-          ['https://rf4.pl/telestick/weekly/region/PL/','teleskop','absolut','pl'   ]
+          ['https://rf4.pl/telestick/region/PL/',           'teleskop','absolut','pl'   ],
+          ['https://rf4.pl/telestick/weekly/region/GL/',    'teleskop','weekly','global'     ],
+          ['https://rf4.pl/telestick/weekly/region/PL/',    'teleskop','weekly','pl'   ]
 
 
           ]
@@ -82,124 +70,100 @@ baits = []
 data = []
 wpis_problem = ''
 for a in range (0,len(strony)):
-#for a in range(7,len(strony)):
-    print('   sprawdzam',strony[a][0])
-    driver.get(strony[a][0])
-    time.sleep(0.2)
+#for a in range(3,4):
+    print('  ',a, ' z ',len(strony),'sprawdzam',strony[a][0])
     website = (strony[a][1])
     cat = (strony[a][2])
     reg = (strony[a][3])
-    bait = driver.find_elements(By.CLASS_NAME,"bait_icon")
-    for element in bait:
-        bait = element.get_attribute("title")
-        baits.append(bait)
 
-    wpisy = driver.find_elements(By.CLASS_NAME,"overflow ")
-    menu_boczne = 5
-    ilosc_wpisy = len(wpisy)-menu_boczne
-
-    for b in range(6,ilosc_wpisy-1,6):
-    #for b in range(6,180,6):
-        try:
-            wpisy[b].click()
-            time.sleep(0.10)
-
-            data_small = []
-            ab = re.findall('[0-9]+',wpisy[b].text)
-            if ((wpisy[b+1].text).find(" kg") > 0 or (wpisy[b+1].text).find(" g") >0) and (len(ab)==0)  :
-                if re.match(r'^\d{2}.\d{2}.\d{2}$',wpisy[b+5].text): #walidacja daty
-                    if len(wpisy[b].text) == 0:
-                        data_small.append(ryba)
-                    else:
-                        data_small.append(wpisy[b].text)
-                        ryba = wpisy[b].text
-
-                    data_small.append(wpisy[b+1].text)
-                    data_small.append(wpisy[b+2].text)
-                    data_small.append(wpisy[b+4].text)
-                    #print(wpisy[b+5].text)              
-                        
-                    
-                    data_small.append(wpisy[b+5].text)
-                    #print('tak wyglada data small przed obsluga bledu',data_small)
-            else:                
-                data_small = []
-                for problem in range (b,b+6):
-                    #print('problem data',problem,wpisy[problem].text,wpisy[problem-1].text,wpisy[problem+1].text,)
-                    oz_wagi = wpisy[problem].text[-2:]
-                    #print('oznaczenie wagi',oz_wagi)                                        
-                    if ((wpisy[problem].text).find(" kg") > 0 or  (wpisy[problem].text).find(" g")   > 0 ) and (oz_wagi == 'kg' or  oz_wagi == ' g') :
-                       #print('pracujemy nad ryba')
-                       if re.match(r'^\d{2}.\d{2}.\d{2}$',wpisy[problem+4].text): #walidacja daty 
-                        
-                           if len(wpisy[problem-1].text) == 0:
-                                data_small.append(ryba)
-                                #print('dodalem rybe z bledu',ryba)
-                           else:
-                               if len(re.findall('[0-9]+',wpisy[problem-1].text  ))==0:
-                                   data_small.append(wpisy[problem-1].text)
-                                   ryba = wpisy[problem-1].text
-
-                           data_small.append(wpisy[problem].text)
-                           data_small.append(wpisy[problem+1].text)
-                           data_small.append(wpisy[problem+3].text)
-                           data_small.append(wpisy[problem+4].text)
-                           #print('  dodalismy z bledu',data_small)
-                           break
-                    else:
-                       #print('  dalej')
-                       continue
+    response = requests.get(strony[a][0])
+    print('     pobralem tresc strony')
+    if response.status_code == 200:
+        html = response.text
+    else:
+        print("Błąd podczas pobierania strony. Kod statusu:", response.status_code)
+    soup = bs4.BeautifulSoup(html, "html.parser")
 
 
-
-
-            #print('    ',data_small) #dev
-            #time.slepp(10) #devc
-            #print(len(data_small))
-            if len(data_small) ==5 and len(re.findall('[0-9]+',data_small[0])  )==0:
-                data.append(data_small)
-        except Exception as e:
-            #print (e)
-            print('problem krytyczny z ', b, wpisy[b].text )
-
-
-    #for datas in data:
-    #    print (datas)
-    #print(dupa)
-    #print(data)
-    complete_data = []
+    rows = soup.find_all("div", class_="row")
     i = 0
-    for row in data:
-        if len(row[0]) ==0 or row[0] =='':
-            print('brak')
-        else:
-            #print([row,baits[i]],i) #dev
-            complete_data.append([row[0],row[1],row[2],row[3],row[4],baits[i]])
-        i+=1
-    for a in range (0,len(complete_data)-2):
-        dzisiaj = complete_data[a][4]
-        dzisiaj = dzisiaj.replace('.','-')
-        dzisiaj = dzisiaj[:-2] + '2023'
-        date_object = datetime.datetime.strptime(dzisiaj, '%d-%m-%Y').date()
-        date_object = date_object.strftime('%Y-%m-%d')
-        #print(date_object)
-        #dzisiaj = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    iab =0
+    errors = 0
+    #print(len(rows))
+    clean_data_ryby = []
+    for rowa in rows:
+        #print('rowa',rowa)
+        #print('rowatext',rowa.text)
+        c_data = rowa.find_all("div", class_="overflow")
+        #print(c_data) #dev
+        data_one_ryba = []
+        for data in c_data:
+            #print(data.text)
+            try:     #czesc odpowiedzialna za probe pobrania titla diva - przynety
+                div = data.find("div", class_="bait_icon")
+                #print(div) #dev
+                title = div["title"]
+                #print('title',title)     #dev
+                data_one_ryba.append(title)
+            except:
+                errors +=1
 
-        if (complete_data[a][1]).find(" kg") > 0:
-            complete_data[a][1] = complete_data[a][1].replace(' kg','')
-            complete_data[a][1] = complete_data[a][1].replace(' ','')
-        else:
-            if (complete_data[a][1]).find(" g")   > 0:
-                complete_data[a][1] = complete_data[a][1].replace(' g','')
-                complete_data[a][1] = '0.'+ complete_data[a][1]
-        #print (a,website, cat,reg, complete_data[a][0],complete_data[a][1], complete_data[a][2],complete_data[a][5], complete_data[a][3],'no_data', 'no_data',complete_data[a][4])
+            if iab ==0:
+                continue
+            if iab !=0:
+                #print(len(data.text),data.text )
+                data_one_ryba.append(data.text)
 
-        sql = "INSERT INTO rankingi(web,cat,reg,fish,weight,place,bait,player,week,day,date) VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-        val = (website, cat,reg, complete_data[a][0],complete_data[a][1], complete_data[a][2],complete_data[a][5], complete_data[a][3],'no_data', 'no_data',date_object)
+        if iab !=0 and len(data_one_ryba[0]) >0:
+            if len(clean_data_ryby) == 0:
+                clean_data_ryby.append(data_one_ryba)
+            else:
+                if data_one_ryba[0] != clean_data_ryby[len(clean_data_ryby)-1][0]:
+                    #print('unikat trzeba dodac',data_one_ryba[0])
+                    clean_data_ryby.append(data_one_ryba)
+        iab +=1
 
 
-        #val = ('test','test2')
-        mycursor.execute(sql, val)
-        mydb.commit()
-    
+    #czesc odpwoiedzialna za czyszczenie wagi
+
+    for a in range(0,len(clean_data_ryby)):
+        for ab in range(0,len(clean_data_ryby[a])):
+            if (clean_data_ryby[a][ab].find('\xa0kg')) >0:
+                clean_data_ryby[a][ab] = clean_data_ryby[a][ab].replace('\xa0kg','')
+                clean_data_ryby[a][ab] = clean_data_ryby[a][ab].replace(' ','')
+
+            if (clean_data_ryby[a][ab].find('\xa0g')) >0:
+                clean_data_ryby[a][ab] = clean_data_ryby[a][ab].replace('\xa0g','')
+                clean_data_ryby[a][ab] = '0.'+ clean_data_ryby[a][ab]
+            pattern = re.compile(r"\d{2}.\d{2}.\d{2}")
+            matches = pattern.findall(clean_data_ryby[a][ab])
+            if len(matches)>0:
+                try:
+                 dzisiaj = clean_data_ryby[a][ab]
+                 dzisiaj = dzisiaj.replace('.','-')
+                 rok = datetime.datetime.now()
+                 rok = rok.year
+                 dzisiaj = dzisiaj[:-2] + str(rok)
+                 date_object = datetime.datetime.strptime(dzisiaj, '%d-%m-%Y').date()
+                 clean_data_ryby[a][ab] = date_object.strftime('%Y-%m-%d')
+                except:
+                    errors +=1
+
+
+    for a in range(0,len(clean_data_ryby)):
+        if len(clean_data_ryby[a])>1:
+            for ab in range(0,len(clean_data_ryby[a]),7):
+                sql = "INSERT INTO test_new(web,cat,reg,fish,weight,place,bait,player,week,day,date) VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                #val = (website, cat,reg, complete_data[a][0],complete_data[a][1], complete_data[a][2],complete_data[a][5], complete_data[a][3],'no_data', 'no_data',date_object)
+                # print('test', 'test','test', clean_data_ryby[a][0],clean_data_ryby[a][ab+1], clean_data_ryby[a][ab+2],clean_data_ryby[a][ab+3], clean_data_ryby[a][ab+5],'no_data', 'no_data',clean_data_ryby[a][ab+6])
+                val = (website, cat,reg, clean_data_ryby[a][0],clean_data_ryby[a][ab+1], clean_data_ryby[a][ab+2],clean_data_ryby[a][ab+3], clean_data_ryby[a][ab+5],'no_data', 'no_data',clean_data_ryby[a][ab+6])
+                mycursor.execute(sql, val)
+                mydb.commit()
+
+
+
+
+
+
+print('koniec')
 
