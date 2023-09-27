@@ -1,10 +1,8 @@
 '''
-STATUS: CLOSED
+STATUS: PISANY
 
 created : 27-08-2023
-LAST UPDATE:
-
-Projekt zamknięty, zmigrował na scraping_rf4_v2
+LAST UPDATE: 25-09-2023
 
 POMYSL NA PROGRAM - ZASADY SA PROSTE - UROCHAMIAM BOCISZKA --
 1. odpalam baze rf4, bede sprzwdzac kazda stronez osobna,
@@ -17,6 +15,10 @@ rumszy :
 stary rumszego:
 
 3. czesc projektu po stronie flaska - diagramy, podglad danych z kolejnej czesci / pliku
+
+25-09-2023
+integracja z cleanerem - dodaje tylko wartosci ktore nie ma w bazie
+
 
 '''
 
@@ -72,7 +74,6 @@ baits = []
 data = []
 wpis_problem = ''
 for a in range (0,len(strony)):
-#for a in range(3,4):
     print('  ',a, ' z ',len(strony),'sprawdzam',strony[a][0])
     website = (strony[a][1])
     cat = (strony[a][2])
@@ -131,10 +132,16 @@ for a in range (0,len(strony)):
             if (clean_data_ryby[a][ab].find('\xa0kg')) >0:
                 clean_data_ryby[a][ab] = clean_data_ryby[a][ab].replace('\xa0kg','')
                 clean_data_ryby[a][ab] = clean_data_ryby[a][ab].replace(' ','')
-
+                waga = clean_data_ryby[a][ab]                
+                waga = float(waga)                
+                clean_data_ryby[a][ab]   = "%0.3f" % waga                
             if (clean_data_ryby[a][ab].find('\xa0g')) >0:
                 clean_data_ryby[a][ab] = clean_data_ryby[a][ab].replace('\xa0g','')
                 clean_data_ryby[a][ab] = '0.'+ clean_data_ryby[a][ab]
+                waga = clean_data_ryby[a][ab]                
+                waga = float(waga)                
+                clean_data_ryby[a][ab]   = "%0.3f" % waga
+                
             pattern = re.compile(r"\d{2}.\d{2}.\d{2}")
             matches = pattern.findall(clean_data_ryby[a][ab])
             if len(matches)>0:
@@ -185,12 +192,24 @@ for a in range (0,len(strony)):
     for a in range(0,len(clean_data_ryby)):
         if len(clean_data_ryby[a])>1:
             for ab in range(0,len(clean_data_ryby[a]),7):
-                sql = "INSERT INTO test_new(web,cat,reg,fish,weight,place,bait,player,week,day,date) VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                #val = (website, cat,reg, complete_data[a][0],complete_data[a][1], complete_data[a][2],complete_data[a][5], complete_data[a][3],'no_data', 'no_data',date_object)
-                # print('test', 'test','test', clean_data_ryby[a][0],clean_data_ryby[a][ab+1], clean_data_ryby[a][ab+2],clean_data_ryby[a][ab+3], clean_data_ryby[a][ab+5],'no_data', 'no_data',clean_data_ryby[a][ab+6])
-                val = (website, cat,reg, clean_data_ryby[a][0],clean_data_ryby[a][ab+1], clean_data_ryby[a][ab+2],clean_data_ryby[a][ab+3], clean_data_ryby[a][ab+5],'no_data', 'no_data',clean_data_ryby[a][ab+6])
-                mycursor.execute(sql, val)
-                mydb.commit()
+                mycursor.execute("SELECT id FROM test_new WHERE  web = '" + str(website) + "' AND cat = '" + str(
+                    cat) + "' AND reg = '" + str(reg) + "' AND fish = '" + str(
+                    clean_data_ryby[a][0]) + "' AND weight LIKE '" + str(
+                    clean_data_ryby[a][ab + 1]) + "'  AND place = '" + str(
+                    clean_data_ryby[a][ab + 2]) + "' AND bait = '" + str(
+                    clean_data_ryby[a][ab + 3]) + "' and date LIKE '%" + str(
+                    clean_data_ryby[a][ab + 6]) + "%'  and player = '" + str(clean_data_ryby[a][ab + 5]) + "'  ")
+                myres2 = mycursor.fetchall()
+                
+
+                
+                if len(myres2) == 0:                                                           
+                    sql = "INSERT INTO test_new(web,cat,reg,fish,weight,place,bait,player,week,day,date) VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                    #val = (website, cat,reg, complete_data[a][0],complete_data[a][1], complete_data[a][2],complete_data[a][5], complete_data[a][3],'no_data', 'no_data',date_object)
+                    # print('test', 'test','test', clean_data_ryby[a][0],clean_data_ryby[a][ab+1], clean_data_ryby[a][ab+2],clean_data_ryby[a][ab+3], clean_data_ryby[a][ab+5],'no_data', 'no_data',clean_data_ryby[a][ab+6])
+                    val = (website, cat,reg, clean_data_ryby[a][0],clean_data_ryby[a][ab+1], clean_data_ryby[a][ab+2],clean_data_ryby[a][ab+3], clean_data_ryby[a][ab+5],'no_data', 'no_data',clean_data_ryby[a][ab+6])
+                    mycursor.execute(sql, val)
+                    mydb.commit()
 
 
 
